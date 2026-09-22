@@ -1,8 +1,10 @@
 import SwiftUI
 import PhotosUI
 import AVFoundation
+import SwiftData
 
 struct RecipePhotoInputView: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var photos: [Data]
     @Binding var isLoading: Bool
     @Binding var selection: [PhotosPickerItem]
@@ -10,6 +12,7 @@ struct RecipePhotoInputView: View {
     @Binding var showsCamera: Bool
     let existingPhotos: [RecipePhoto]
     @State private var errorMessage: String?
+    @State private var deletionError: String?
 
     private var sortedExistingPhotos: [RecipePhoto] {
         existingPhotos.sorted { $0.sortOrder < $1.sortOrder }
@@ -18,7 +21,19 @@ struct RecipePhotoInputView: View {
     var body: some View {
         Section("写真") {
             ForEach(Array(sortedExistingPhotos.enumerated()), id: \.element.id) { index, photo in
-                SavedRecipePhotoRow(fileName: photo.fileName, number: index + 1)
+                HStack {
+                    SavedRecipePhotoRow(fileName: photo.fileName, number: index + 1)
+                    Spacer()
+                    Button("写真を削除", systemImage: "trash", role: .destructive) {
+                        do {
+                            try RecipePhotoDeletion.delete(photo, context: modelContext)
+                        } catch {
+                            deletionError = error.localizedDescription
+                        }
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                }
             }
             ForEach(photos.indices, id: \.self) { index in
                 HStack {
@@ -30,6 +45,12 @@ struct RecipePhotoInputView: View {
                             .accessibilityLabel("追加する写真")
                     }
                     Text("写真 \(existingPhotos.count + index + 1)")
+                    Spacer()
+                    Button("写真を削除", systemImage: "trash", role: .destructive) {
+                        photos.remove(at: index)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
                 }
             }
             if isLoading {
@@ -73,6 +94,14 @@ struct RecipePhotoInputView: View {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .alert("写真を削除できませんでした", isPresented: Binding(
+            get: { deletionError != nil },
+            set: { if !$0 { deletionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deletionError = nil }
+        } message: {
+            Text(deletionError ?? "")
         }
     }
 

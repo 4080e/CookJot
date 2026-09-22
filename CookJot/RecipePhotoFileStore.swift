@@ -23,6 +23,39 @@ struct RecipePhotoFileStore {
         try FileManager.default.removeItem(at: fileURL(for: fileName))
     }
 
+    /// 参照名を取得できた場合だけ呼ぶ。サブディレクトリやリンクは削除しない。
+    func removeUnreferencedFiles(referencedNames: Set<String>) throws -> [String] {
+        let files: [URL]
+        do {
+            files = try FileManager.default.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            )
+        } catch CocoaError.fileReadNoSuchFile {
+            return []
+        }
+
+        var failures: [String] = []
+        for file in files {
+            guard !referencedNames.contains(file.lastPathComponent) else { continue }
+            do {
+                let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard values.isRegularFile == true, values.isSymbolicLink != true else { continue }
+                try delete(fileName: file.lastPathComponent)
+            } catch {
+                failures.append("\(file.lastPathComponent)：\(error.localizedDescription)")
+            }
+        }
+        return failures
+    }
+
+    /// 削除処理に失敗した場合に、元のファイル名で復元する。
+    func restore(_ data: Data, fileName: String) throws {
+        let url = try fileURL(for: fileName)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+    }
+
     private func fileURL(for fileName: String) throws -> URL {
         guard !fileName.isEmpty,
               fileName != ".", fileName != "..",

@@ -5,8 +5,19 @@ import SwiftData
 struct CookJotApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            CookJotRootView()
         }
         .modelContainer(for: [Recipe.self, RecipePhoto.self])
+    }
+}
+
+private struct CookJotRootView: View {
+    @Environment(\.modelContext) private var modelContext
+
+    var body: some View {
+        ContentView()
+            .task {
+                RecipePhotoCleanup.runOnce(context: modelContext)
+            }
     }
 }

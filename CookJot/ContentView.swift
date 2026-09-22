@@ -6,6 +6,7 @@ struct ContentView: View {
     @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
     @State private var isShowingNewRecipe = false
     @State private var isShowingDeleteError = false
+    @State private var deleteErrorMessage = ""
     @State private var searchText = ""
 
     private var filteredRecipes: [Recipe] {
@@ -58,17 +59,16 @@ struct ContentView: View {
             .alert("削除できませんでした", isPresented: $isShowingDeleteError) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("もう一度削除してください。")
+                Text(deleteErrorMessage)
             }
         }
     }
 
     private func deleteRecipe(_ recipe: Recipe) {
-        modelContext.delete(recipe)
         do {
-            try modelContext.save()
+            try RecipePhotoDeletion.delete(recipe, context: modelContext)
         } catch {
-            modelContext.rollback()
+            deleteErrorMessage = error.localizedDescription
             isShowingDeleteError = true
         }
     }
