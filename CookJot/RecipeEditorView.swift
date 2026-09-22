@@ -3,6 +3,7 @@ import SwiftUI
 import SwiftData
 
 struct RecipeEditorView: View {
+    private let recipe: Recipe?
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -12,6 +13,15 @@ struct RecipeEditorView: View {
     @State private var memo = ""
     @State private var sourceURL = ""
     @State private var isShowingSaveError = false
+
+    init(recipe: Recipe? = nil) {
+        self.recipe = recipe
+        _title = State(initialValue: recipe?.title ?? "")
+        _ingredients = State(initialValue: recipe?.ingredients ?? "")
+        _instructions = State(initialValue: recipe?.instructions ?? "")
+        _memo = State(initialValue: recipe?.memo ?? "")
+        _sourceURL = State(initialValue: recipe?.sourceURL ?? "")
+    }
 
     private var trimmedTitle: String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -42,7 +52,7 @@ struct RecipeEditorView: View {
                         .autocorrectionDisabled()
                 }
             }
-            .navigationTitle("新規レシピ")
+            .navigationTitle(recipe == nil ? "新規レシピ" : "レシピを編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -68,22 +78,25 @@ struct RecipeEditorView: View {
 
         let now = Date()
         let link = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let recipe = Recipe(
-            title: trimmedTitle,
-            ingredients: ingredients,
-            instructions: instructions,
-            memo: memo,
-            sourceURL: link.isEmpty ? nil : link,
-            createdAt: now,
-            updatedAt: now
-        )
-        modelContext.insert(recipe)
+        let target: Recipe
+        if let recipe {
+            target = recipe
+        } else {
+            target = Recipe(title: trimmedTitle, createdAt: now, updatedAt: now)
+            modelContext.insert(target)
+        }
+        target.title = trimmedTitle
+        target.ingredients = ingredients
+        target.instructions = instructions
+        target.memo = memo
+        target.sourceURL = link.isEmpty ? nil : link
+        target.updatedAt = now
 
         do {
             try modelContext.save()
             dismiss()
         } catch {
-            modelContext.delete(recipe)
+            modelContext.rollback()
             isShowingSaveError = true
         }
     }

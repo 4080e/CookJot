@@ -7,6 +7,7 @@ struct RecipeDetailView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
+    @State private var isShowingEditor = false
 
     var body: some View {
         List {
@@ -30,19 +31,34 @@ struct RecipeDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(recipe.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("編集") {
+                    isShowingEditor = true
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingEditor) {
+            RecipeEditorView(recipe: recipe)
+        }
         .onAppear {
             isVisible = true
-            UIApplication.shared.isIdleTimerDisabled = scenePhase == .active
+            updateIdleTimer()
         }
         .onDisappear {
             isVisible = false
             UIApplication.shared.isIdleTimerDisabled = false
         }
-        .onChange(of: scenePhase) { _, phase in
-            if isVisible {
-                UIApplication.shared.isIdleTimerDisabled = phase == .active
-            }
+        .onChange(of: scenePhase) { _, _ in
+            updateIdleTimer()
         }
+        .onChange(of: isShowingEditor) { _, _ in
+            updateIdleTimer()
+        }
+    }
+
+    private func updateIdleTimer() {
+        UIApplication.shared.isIdleTimerDisabled = isVisible && !isShowingEditor && scenePhase == .active
     }
 
     @ViewBuilder
