@@ -13,6 +13,7 @@ struct RecipeEditorView: View {
     @State private var memo = ""
     @State private var sourceURL = ""
     @State private var isShowingSaveError = false
+    @State private var isShowingImport = false
 
     init(recipe: Recipe? = nil) {
         self.recipe = recipe
@@ -30,6 +31,13 @@ struct RecipeEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if recipe == nil {
+                    Section {
+                        Button("かんたん取込") {
+                            isShowingImport = true
+                        }
+                    }
+                }
                 Section("レシピ名") {
                     TextField("レシピ名", text: $title)
                 }
@@ -53,6 +61,15 @@ struct RecipeEditorView: View {
                 }
             }
             .navigationTitle(recipe == nil ? "新規レシピ" : "レシピを編集")
+            .sheet(isPresented: $isShowingImport) {
+                RecipeImportView { imported in
+                    title = imported.title
+                    ingredients = imported.ingredients
+                    instructions = imported.instructions
+                    memo = imported.memo
+                    sourceURL = imported.sourceURL
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
