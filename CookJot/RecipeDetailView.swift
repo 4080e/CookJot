@@ -20,7 +20,10 @@ struct RecipeDetailView: View {
                 Section("参考リンク") {
                     if let url = URL(string: source.trimmingCharacters(in: .whitespacesAndNewlines)),
                        url.scheme != nil {
-                        Link("参考リンク", destination: url)
+                        Link(destination: url) {
+                            Text(source)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     } else {
                         Text(source)
                             .textSelection(.enabled)

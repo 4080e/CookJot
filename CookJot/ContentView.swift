@@ -43,6 +43,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("CookJot")
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "レシピを検索")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
