@@ -6,11 +6,23 @@ struct ContentView: View {
     @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
     @State private var isShowingNewRecipe = false
     @State private var isShowingDeleteError = false
+    @State private var searchText = ""
+
+    private var filteredRecipes: [Recipe] {
+        guard !searchText.isEmpty else { return recipes }
+
+        return recipes.filter { recipe in
+            recipe.title.localizedCaseInsensitiveContains(searchText)
+                || recipe.ingredients.localizedCaseInsensitiveContains(searchText)
+                || recipe.instructions.localizedCaseInsensitiveContains(searchText)
+                || recipe.memo.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(recipes) { recipe in
+                ForEach(filteredRecipes) { recipe in
                     NavigationLink {
                         RecipeDetailView(recipe: recipe)
                     } label: {
@@ -26,9 +38,12 @@ struct ContentView: View {
             .overlay {
                 if recipes.isEmpty {
                     ContentUnavailableView("レシピがありません", systemImage: "book.closed")
+                } else if filteredRecipes.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
             .navigationTitle("CookJot")
+            .searchable(text: $searchText, prompt: "レシピを検索")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("新規レシピ", systemImage: "plus") {
