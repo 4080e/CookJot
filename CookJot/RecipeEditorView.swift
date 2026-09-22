@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct RecipeEditorView: View {
     private let recipe: Recipe?
@@ -14,6 +15,13 @@ struct RecipeEditorView: View {
     @State private var sourceURL = ""
     @State private var isShowingSaveError = false
     @State private var isShowingImport = false
+    @State private var pendingPhotos: [Data] = []
+    @State private var isLoadingPhotos = false
+    @State private var photoSelection: [PhotosPickerItem] = []
+    @State private var isShowingPhotoLibrary = false
+    @State private var isShowingCamera = false
+    @State private var cameraCaptureFailed = false
+    @State private var isShowingCameraError = false
 
     init(recipe: Recipe? = nil) {
         self.recipe = recipe
@@ -59,6 +67,14 @@ struct RecipeEditorView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
+                RecipePhotoInputView(
+                    photos: $pendingPhotos,
+                    isLoading: $isLoadingPhotos,
+                    selection: $photoSelection,
+                    showsLibrary: $isShowingPhotoLibrary,
+                    showsCamera: $isShowingCamera,
+                    existingPhotos: recipe?.photos ?? []
+                )
             }
             .navigationTitle(recipe == nil ? "新規レシピ" : "レシピを編集")
             .sheet(isPresented: $isShowingImport) {
@@ -79,7 +95,7 @@ struct RecipeEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存", action: saveRecipe)
-                        .disabled(trimmedTitle.isEmpty)
+                        .disabled(trimmedTitle.isEmpty || isLoadingPhotos)
                 }
             }
             .alert("保存できませんでした", isPresented: $isShowingSaveError) {
@@ -88,10 +104,52 @@ struct RecipeEditorView: View {
                 Text("入力内容を保持しています。もう一度保存してください。")
             }
         }
+        // MenuやFormの行ではなく、編集中存続するビューをPickerの表示元にする。
+        .photosPicker(
+            isPresented: $isShowingPhotoLibrary,
+            selection: $photoSelection,
+            selectionBehavior: .ordered,
+            matching: .images
+        )
+        .fullScreenCover(isPresented: $isShowingCamera, onDismiss: {
+            isShowingCameraError = cameraCaptureFailed
+            cameraCaptureFailed = false
+        }) {
+            RecipeCameraView(onCapture: { data in
+                if let data {
+                    pendingPhotos.append(data)
+                } else {
+                    cameraCaptureFailed = true
+                }
+                isShowingCamera = false
+            }, onCancel: {
+                isShowingCamera = false
+            })
+            .ignoresSafeArea()
+        }
+        .alert("写真を追加できません", isPresented: $isShowingCameraError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("撮影した写真を読み込めませんでした。")
+        }
     }
 
     private func saveRecipe() {
-        guard !trimmedTitle.isEmpty else { return }
+        guard !trimmedTitle.isEmpty, !isLoadingPhotos else { return }
+
+        let fileStore = RecipePhotoFileStore()
+        var savedFileNames: [String] = []
+        do {
+            for data in pendingPhotos {
+                savedFileNames.append(try fileStore.save(data))
+            }
+        } catch {
+            for fileName in savedFileNames {
+                try? fileStore.delete(fileName: fileName)
+            }
+            isShowingSaveError = true
+            return
+        }
 
         let now = Date()
         let link = sourceURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -109,11 +167,20 @@ struct RecipeEditorView: View {
         target.sourceURL = link.isEmpty ? nil : link
         target.updatedAt = now
 
+        let nextOrder = (target.photos.map(\.sortOrder).max() ?? -1) + 1
+        for (index, fileName) in savedFileNames.enumerated() {
+            let photo = RecipePhoto(fileName: fileName, sortOrder: nextOrder + index, createdAt: now, recipe: target)
+            modelContext.insert(photo)
+        }
+
         do {
             try modelContext.save()
             dismiss()
         } catch {
             modelContext.rollback()
+            for fileName in savedFileNames {
+                try? fileStore.delete(fileName: fileName)
+            }
             isShowingSaveError = true
         }
     }

@@ -7,6 +7,6 @@ struct CookJotApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: Recipe.self)
+        .modelContainer(for: [Recipe.self, RecipePhoto.self])
     }
 }

@@ -12,6 +12,9 @@ final class Recipe {
     var createdAt: Date
     var updatedAt: Date
 
+    @Relationship(deleteRule: .cascade, inverse: \RecipePhoto.recipe)
+    var photos: [RecipePhoto] = []
+
     init(
         id: UUID = UUID(),
         title: String,
