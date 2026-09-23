@@ -6,6 +6,7 @@ struct CookJotApp: App {
     var body: some Scene {
         WindowGroup {
             CookJotRootView()
+                .tint(Color("AccentColor"))
         }
         .modelContainer(for: [Recipe.self, RecipePhoto.self])
     }

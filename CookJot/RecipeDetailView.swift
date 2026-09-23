@@ -18,7 +18,7 @@ struct RecipeDetailView: View {
 
             if let source = recipe.sourceURL,
                !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Section("参考リンク") {
+                Section {
                     if let url = URL(string: source.trimmingCharacters(in: .whitespacesAndNewlines)),
                        url.scheme != nil {
                         Link(destination: url) {
@@ -29,15 +29,21 @@ struct RecipeDetailView: View {
                         Text(source)
                             .textSelection(.enabled)
                     }
+                } header: {
+                    Text("参考リンク")
+                        .foregroundStyle(Color("AccentColor"))
                 }
             }
             if !recipe.photos.isEmpty {
-                Section("写真") {
+                Section {
                     ForEach(recipe.photos.sorted { $0.sortOrder < $1.sortOrder }) { photo in
                         RecipeDetailPhotoView(fileName: photo.fileName) { image in
                             selectedPhoto = DetailPhotoSelection(image: image)
                         }
                     }
+                } header: {
+                    Text("写真")
+                        .foregroundStyle(Color("AccentColor"))
                 }
             }
         }
@@ -91,10 +97,13 @@ struct RecipeDetailView: View {
     @ViewBuilder
     private func recipeSection(_ title: String, content: String) -> some View {
         if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Section(title) {
+            Section {
                 Text(content)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+            } header: {
+                Text(title)
+                    .foregroundStyle(Color("AccentColor"))
             }
         }
     }

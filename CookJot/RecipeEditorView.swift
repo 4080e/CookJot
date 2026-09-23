@@ -36,45 +36,59 @@ struct RecipeEditorView: View {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var canImport: Bool {
+        [title, ingredients, instructions, memo, sourceURL].allSatisfy(\.isEmpty)
+    }
+
     var body: some View {
         NavigationStack {
-            Form {
+            VStack(spacing: 0) {
                 if recipe == nil {
-                    Section {
-                        Button("かんたん取込") {
-                            isShowingImport = true
-                        }
+                    Button {
+                        isShowingImport = true
+                    } label: {
+                        Label("かんたん取込", systemImage: "wand.and.stars")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .buttonBorderShape(.roundedRectangle(radius: 12))
+                    .tint(Color("AccentColor"))
+                    .disabled(!canImport)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                 }
-                Section("レシピ名") {
-                    TextField("レシピ名", text: $title)
+                Form {
+                    Section("レシピ名") {
+                        TextField("レシピ名", text: $title)
+                    }
+                    Section("材料") {
+                        TextField("材料", text: $ingredients, axis: .vertical)
+                            .lineLimit(3...)
+                    }
+                    Section("作り方") {
+                        TextField("作り方", text: $instructions, axis: .vertical)
+                            .lineLimit(3...)
+                    }
+                    Section("メモ") {
+                        TextField("メモ", text: $memo, axis: .vertical)
+                            .lineLimit(3...)
+                    }
+                    Section("参考リンク") {
+                        TextField("URL（任意）", text: $sourceURL)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    RecipePhotoInputView(
+                        photos: $pendingPhotos,
+                        isLoading: $isLoadingPhotos,
+                        selection: $photoSelection,
+                        showsLibrary: $isShowingPhotoLibrary,
+                        showsCamera: $isShowingCamera,
+                        existingPhotos: recipe?.photos ?? []
+                    )
                 }
-                Section("材料") {
-                    TextField("材料", text: $ingredients, axis: .vertical)
-                        .lineLimit(3...)
-                }
-                Section("作り方") {
-                    TextField("作り方", text: $instructions, axis: .vertical)
-                        .lineLimit(3...)
-                }
-                Section("メモ") {
-                    TextField("メモ", text: $memo, axis: .vertical)
-                        .lineLimit(3...)
-                }
-                Section("参考リンク") {
-                    TextField("URL（任意）", text: $sourceURL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                RecipePhotoInputView(
-                    photos: $pendingPhotos,
-                    isLoading: $isLoadingPhotos,
-                    selection: $photoSelection,
-                    showsLibrary: $isShowingPhotoLibrary,
-                    showsCamera: $isShowingCamera,
-                    existingPhotos: recipe?.photos ?? []
-                )
             }
             .navigationTitle(recipe == nil ? "新規レシピ" : "レシピを編集")
             .sheet(isPresented: $isShowingImport) {
@@ -95,6 +109,8 @@ struct RecipeEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存", action: saveRecipe)
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color("AccentColor"))
                         .disabled(trimmedTitle.isEmpty || isLoadingPhotos)
                 }
             }
