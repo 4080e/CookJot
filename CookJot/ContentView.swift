@@ -2,21 +2,35 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    private enum RecipeSortOrder: String {
+        case updatedAt
+        case name
+    }
+
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
+    @Query(sort: \Recipe.updatedAt, order: .reverse) private var recipes: [Recipe]
+    @AppStorage("recipeSortOrder") private var sortOrder: RecipeSortOrder = .updatedAt
     @State private var isShowingNewRecipe = false
     @State private var isShowingDeleteError = false
     @State private var deleteErrorMessage = ""
     @State private var searchText = ""
 
     private var filteredRecipes: [Recipe] {
-        guard !searchText.isEmpty else { return recipes }
-
-        return recipes.filter { recipe in
-            recipe.title.localizedCaseInsensitiveContains(searchText)
+        let filtered = recipes.filter { recipe in
+            searchText.isEmpty
+                || recipe.title.localizedCaseInsensitiveContains(searchText)
                 || recipe.ingredients.localizedCaseInsensitiveContains(searchText)
                 || recipe.instructions.localizedCaseInsensitiveContains(searchText)
                 || recipe.memo.localizedCaseInsensitiveContains(searchText)
+        }
+
+        switch sortOrder {
+        case .updatedAt:
+            return filtered
+        case .name:
+            return filtered.sorted {
+                $0.title.localizedStandardCompare($1.title) == .orderedAscending
+            }
         }
     }
 
@@ -47,7 +61,17 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "レシピを検索")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("並べ替え", selection: $sortOrder) {
+                            Text("更新が新しい順").tag(RecipeSortOrder.updatedAt)
+                            Text("名前順").tag(RecipeSortOrder.name)
+                        }
+                    } label: {
+                        Label("並べ替え", systemImage: "arrow.up.arrow.down")
+                    }
+                    .accessibilityLabel("並べ替え")
+
                     Button("新規レシピ", systemImage: "plus") {
                         isShowingNewRecipe = true
                     }
