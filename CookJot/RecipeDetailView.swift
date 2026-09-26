@@ -6,13 +6,32 @@ struct RecipeDetailView: View {
     let recipe: Recipe
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @State private var isVisible = false
     @State private var isShowingEditor = false
     @State private var selectedPhoto: DetailPhotoSelection?
+    @State private var isShowingCartJotError = false
 
     var body: some View {
         List {
-            recipeSection("材料", content: recipe.ingredients)
+            Section {
+                if hasIngredients {
+                    Text(recipe.ingredients)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                HStack {
+                    Text("材料")
+                        .foregroundStyle(Color("AccentColor"))
+                    Spacer()
+                    Button(action: sendIngredientsToCartJot) {
+                        Image(systemName: "cart")
+                    }
+                    .accessibilityLabel("CartJotへ送る")
+                    .disabled(!hasIngredients)
+                }
+            }
             recipeSection("作り方", content: recipe.instructions)
             recipeSection("メモ", content: recipe.memo)
 
@@ -60,6 +79,11 @@ struct RecipeDetailView: View {
         .sheet(isPresented: $isShowingEditor) {
             RecipeEditorView(recipe: recipe)
         }
+        .alert("CartJotを開けませんでした", isPresented: $isShowingCartJotError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("CartJotがインストールされていることを確認してください。")
+        }
         .sheet(item: $selectedPhoto) { photo in
             NavigationStack {
                 ZoomableRecipePhoto(image: photo.image)
@@ -87,6 +111,30 @@ struct RecipeDetailView: View {
         }
         .onChange(of: isShowingEditor) { _, _ in
             updateIdleTimer()
+        }
+    }
+
+    private var hasIngredients: Bool {
+        !recipe.ingredients.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func sendIngredientsToCartJot() {
+        guard hasIngredients else { return }
+
+        var components = URLComponents()
+        components.scheme = "cartjot"
+        components.host = "import"
+        components.queryItems = [URLQueryItem(name: "text", value: recipe.ingredients)]
+
+        guard let url = components.url else {
+            isShowingCartJotError = true
+            return
+        }
+
+        openURL(url) { accepted in
+            if !accepted {
+                isShowingCartJotError = true
+            }
         }
     }
 
