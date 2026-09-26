@@ -1,0 +1,25 @@
+# macOS metadata
+.DS_Store
+
+# User-specific Xcode settings (keep shared schemes and workspace settings)
+xcuserdata/
+*.xcuserstate
+
+# Xcode build output
+/build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Swift Package Manager build output and local workspace state
+.build/
+
+# Keep Xcode's shared Swift package configuration inside .swiftpm.
+.swiftpm/*
+!.swiftpm/xcode/
+.swiftpm/xcode/*
+!.swiftpm/xcode/xcshareddata/
+
+# Package.swift and Package.resolved are intentionally tracked.
