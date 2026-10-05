@@ -17,6 +17,7 @@ struct RecipeImportView: View {
                         text = pastedText
                     }
                     .labelStyle(.titleOnly)
+                    .disabled(!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: $text)
