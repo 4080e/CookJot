@@ -64,8 +64,11 @@ enum RecipeTextParser {
         }
 
         result.ingredients = contents[Section.ingredients.rawValue].joined(separator: "\n")
+            .trimmingCharacters(in: .newlines)
         result.instructions = contents[Section.instructions.rawValue].joined(separator: "\n")
+            .trimmingCharacters(in: .newlines)
         result.memo = contents[Section.memo.rawValue].joined(separator: "\n")
+            .trimmingCharacters(in: .newlines)
         return result
     }
 
