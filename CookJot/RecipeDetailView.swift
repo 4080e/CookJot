@@ -5,9 +5,7 @@ import UIKit
 struct RecipeDetailView: View {
     let recipe: Recipe
 
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
-    @State private var isVisible = false
     @State private var isShowingEditor = false
     @State private var selectedPhoto: DetailPhotoSelection?
     @State private var isShowingCartJotError = false
@@ -98,20 +96,7 @@ struct RecipeDetailView: View {
                     }
             }
         }
-        .onAppear {
-            isVisible = true
-            updateIdleTimer()
-        }
-        .onDisappear {
-            isVisible = false
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
-        .onChange(of: scenePhase) { _, _ in
-            updateIdleTimer()
-        }
-        .onChange(of: isShowingEditor) { _, _ in
-            updateIdleTimer()
-        }
+        .keepAwake(while: !isShowingEditor)
     }
 
     private var hasIngredients: Bool {
@@ -138,10 +123,6 @@ struct RecipeDetailView: View {
         }
     }
 
-    private func updateIdleTimer() {
-        UIApplication.shared.isIdleTimerDisabled = isVisible && !isShowingEditor && scenePhase == .active
-    }
-
     @ViewBuilder
     private func recipeSection(_ title: String, content: String) -> some View {
         if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -162,7 +143,7 @@ private struct DetailPhotoSelection: Identifiable {
     let image: UIImage
 }
 
-private struct ZoomableRecipePhoto: View {
+struct ZoomableRecipePhoto: View {
     let image: UIImage
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero

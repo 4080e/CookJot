@@ -8,12 +8,19 @@ struct ContentView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(TodayMenuStore.self) private var todayMenu
     @Query(sort: \Recipe.updatedAt, order: .reverse) private var recipes: [Recipe]
     @AppStorage("recipeSortOrder") private var sortOrder: RecipeSortOrder = .updatedAt
     @State private var isShowingNewRecipe = false
     @State private var isShowingDeleteError = false
     @State private var deleteErrorMessage = ""
     @State private var searchText = ""
+    @State private var isShowingTodayMenu = false
+    @State private var menuPresentationID = UUID()
+
+    private var menuCount: Int {
+        recipes.filter { todayMenu.contains($0.id) }.count
+    }
 
     private var filteredRecipes: [Recipe] {
         let filtered = recipes.filter { recipe in
@@ -48,6 +55,18 @@ struct ContentView: View {
                             deleteRecipe(recipe)
                         }
                     }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        if todayMenu.contains(recipe.id) {
+                            Button("メニューから解除", systemImage: "minus.circle") {
+                                todayMenu.remove(recipe.id)
+                            }
+                        } else {
+                            Button("メニューに追加", systemImage: "fork.knife") {
+                                todayMenu.add(recipe.id)
+                            }
+                            .tint(Color("AccentColor"))
+                        }
+                    }
                 }
             }
             .overlay {
@@ -62,6 +81,20 @@ struct ContentView: View {
             .searchable(text: $searchText, prompt: "レシピを検索")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        menuPresentationID = UUID()
+                        isShowingTodayMenu = true
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "fork.knife")
+                            Text(menuCount, format: .number)
+                                .font(.caption)
+                                .monospacedDigit()
+                        }
+                    }
+                    .accessibilityLabel("今日のメニュー")
+                    .accessibilityValue("\(menuCount)件")
+
                     Menu {
                         Picker("並べ替え", selection: $sortOrder) {
                             Text("更新が新しい順").tag(RecipeSortOrder.updatedAt)
@@ -80,6 +113,10 @@ struct ContentView: View {
             .sheet(isPresented: $isShowingNewRecipe) {
                 RecipeEditorView()
             }
+            .navigationDestination(isPresented: $isShowingTodayMenu) {
+                TodayMenuView()
+                    .id(menuPresentationID)
+            }
             .alert("削除できませんでした", isPresented: $isShowingDeleteError) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -89,8 +126,10 @@ struct ContentView: View {
     }
 
     private func deleteRecipe(_ recipe: Recipe) {
+        let id = recipe.id
         do {
             try RecipePhotoDeletion.delete(recipe, context: modelContext)
+            todayMenu.remove(id)
         } catch {
             deleteErrorMessage = error.localizedDescription
             isShowingDeleteError = true
@@ -100,5 +139,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environment(TodayMenuStore(defaults: UserDefaults(suiteName: "CookJotPreview")!))
         .modelContainer(for: Recipe.self, inMemory: true)
 }
