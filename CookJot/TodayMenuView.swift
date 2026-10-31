@@ -26,7 +26,20 @@ struct TodayMenuView: View {
                         }
                     } label: {
                         Text(recipe.title)
+                            .fontWeight(.semibold)
                             .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 11) // 3pt line + 8pt gap
+                            .padding(.trailing, 8)
+                            .overlay(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color("AccentColor"))
+                                    .frame(width: 3)
+                                    .allowsHitTesting(false)
+                            }
+                            .padding(.vertical, 4)
                     }
                     .disabled(editMode.isEditing)
                 }
@@ -45,6 +58,7 @@ struct TodayMenuView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .listRowSpacing(4)
         .environment(\.editMode, $editMode)
         .overlay {
             if menuRecipes.isEmpty {
