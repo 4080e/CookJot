@@ -1,11 +1,20 @@
 import XCTest
 
 final class TodayMenuUITests: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "devplaceholder.AZE9Z58K.CookJot")
+    private let app = XCUIApplication(bundleIdentifier: "devplaceholder.CookJotMenuUI")
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app.launch()
+    }
+
+    override func tearDownWithError() throws {
+        if (testRun?.failureCount ?? 0) > 0 {
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            print(app.debugDescription)
+        }
     }
 
     @MainActor
@@ -58,6 +67,9 @@ final class TodayMenuUITests: XCTestCase {
         for content in ["Egg 1\n\nSalt 2", "Mix\n\nCook", "Memo first\n\nMemo last"] {
             app.staticTexts[content].tap()
             XCTAssertEqual(app.state, .runningForeground, "Body taps must not open the recipe link")
+            XCTAssertFalse(app.staticTexts["Egg 1\n\nSalt 2"].exists, "Body taps normally collapse the disclosure")
+            titleA.tap()
+            XCTAssertTrue(app.staticTexts[content].waitForExistence(timeout: 5))
         }
         titleA.tap()
         XCTAssertEqual(app.state, .runningForeground, "Title tap only collapses the row")
@@ -105,7 +117,9 @@ final class TodayMenuUITests: XCTestCase {
                 "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@", "Delete", "削除", "Remove"))
             XCTAssertTrue(delete.firstMatch.exists, "First edit must expose the removal control for \(title)")
         }
-        reorder.element(boundBy: 1).press(forDuration: 0.5, thenDragTo: reorder.element(boundBy: 0))
+        let firstRow = app.cells.containing(.staticText, identifier: "Menu Test A").firstMatch
+        reorder.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.7, thenDragTo: firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.05)))
         app.buttons["完了"].tap()
         XCTAssertFalse(app.staticTexts["Egg 1\n\nSalt 2"].exists)
         XCTAssertEqual(app.cells.element(boundBy: 0).staticTexts.firstMatch.label, "Menu Test B")
@@ -162,6 +176,14 @@ final class TodayMenuUITests: XCTestCase {
 
     @MainActor
     private func openMenu() {
+        // iOS 27 hides navigation toolbar actions while the search presentation is active.
+        if !app.buttons["今日のメニュー"].exists {
+            for label in ["close", "閉じる", "キャンセル", "Cancel"] where app.buttons[label].exists {
+                app.buttons[label].tap()
+                break
+            }
+        }
+        XCTAssertTrue(app.buttons["今日のメニュー"].waitForExistence(timeout: 5))
         app.buttons["今日のメニュー"].tap()
         XCTAssertTrue(app.navigationBars["今日のメニュー"].waitForExistence(timeout: 5))
     }

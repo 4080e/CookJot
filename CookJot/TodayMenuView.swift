@@ -9,12 +9,108 @@ struct TodayMenuView: View {
     @State private var editMode: EditMode = .inactive
     @State private var isShowingClearConfirmation = false
     @State private var selectedPhoto: MenuPhotoSelection?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var jumps = TodayMenuJumpController()
 
     private var menuRecipes: [Recipe] {
         todayMenu.recipeIDs.compactMap { id in recipes.first { $0.id == id } }
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            menuList
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                    // List already lays out inside the visible safe area.
+                    jumps.updateViewport($0)
+                }
+                .onScrollGeometryChange(for: TodayMenuJumpController.ScrollMetrics.self) {
+                    .init(offset: $0.contentOffset.y, contentHeight: $0.contentSize.height,
+                          containerHeight: $0.containerSize.height, topInset: $0.contentInsets.top,
+                          bottomInset: $0.contentInsets.bottom)
+                } action: { _, value in
+                    if !editMode.isEditing { jumps.updateScroll(value) }
+                }
+                .onScrollPhaseChange { _, phase in
+                    guard !editMode.isEditing else { return }
+                    switch phase {
+                    case .idle: jumps.updatePhase(.idle)
+                    case .tracking, .interacting: jumps.updatePhase(.userInteraction)
+                    default: jumps.updatePhase(.moving)
+                    }
+                }
+                .contentMargins(.bottom, editMode.isEditing ? 0 : jumps.margin(lastExpanded:
+                    menuRecipes.last.map { expandedIDs.contains($0.id) } ?? false), for: .scrollContent)
+                .overlay(alignment: .bottomTrailing) {
+                    if menuRecipes.count > 1 && !editMode.isEditing && selectedPhoto == nil {
+                        jumpButtons(proxy: proxy)
+                    }
+                }
+                .onAppear {
+                    jumps.updateOrder(menuRecipes.map(\.id))
+                    jumps.updatePhase(.idle)
+                    jumps.layoutChanged()
+                }
+                .onDisappear { jumps.cancel() }
+                .onChange(of: expandedIDs) { _, _ in jumps.layoutChanged() }
+                .onChange(of: editMode.isEditing) { _, _ in
+                    jumps.updatePhase(.idle)
+                    jumps.layoutChanged()
+                }
+                .onChange(of: selectedPhoto?.id) { _, _ in jumps.cancel() }
+                .onChange(of: dynamicTypeSize) { _, _ in jumps.contentChanged() }
+                .onChange(of: menuRecipes.map(\.updatedAt)) { _, _ in jumps.contentChanged() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active { jumps.cancel() }
+                    else {
+                        jumps.updatePhase(.idle)
+                        jumps.layoutChanged()
+                    }
+                }
+        }
+    }
+
+    private func jumpButtons(proxy: ScrollViewProxy) -> some View {
+        VStack(spacing: 8) {
+            jumpButton(.previous, symbol: "arrowtriangle.up.fill", label: "前のレシピ", proxy: proxy)
+            jumpButton(.next, symbol: "arrowtriangle.down.fill", label: "次のレシピ", proxy: proxy)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { jumps.updateControlsHeight($0) }
+        .padding(.trailing, 12)
+        .padding(.bottom, 12)
+    }
+
+    private func jumpButton(_ direction: TodayMenuJumpController.Direction, symbol: String,
+                            label: String, proxy: ScrollViewProxy) -> some View {
+        let disabled = jumps.isJumping || jumps.phase != .idle || jumps.neighbor(direction) == nil
+        return Button {
+            jumps.jump(direction, reduceMotion: reduceMotion) { id, animated in
+                if animated {
+                    withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .top) }
+                } else {
+                    var transaction = Transaction(animation: nil)
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { proxy.scrollTo(id, anchor: .top) }
+                }
+            }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color("AccentColor"))
+                .frame(width: 48, height: 48)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .contentShape(Rectangle())
+                .opacity(disabled ? 0.35 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel(label)
+        .accessibilityHint("レシピカードの先頭へ移動します")
+        .accessibilityIdentifier(direction == .previous ? "today-menu.jump.previous" : "today-menu.jump.next")
+    }
+
+    private var menuList: some View {
         List {
             ForEach(menuRecipes, id: \.id) { recipe in
                 // Keep the disclosure and its contents in one movable List row.
@@ -45,6 +141,9 @@ struct TodayMenuView: View {
                 }
                 // List animates the cell height; keep its contents anchored at the top.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .id(recipe.id)
+                .listRowBackground(TodayMenuRowBackground(id: recipe.id, epoch: jumps.epoch, jumps: jumps,
+                                                        expanded: expandedIDs.contains(recipe.id), enabled: !editMode.isEditing))
                 .swipeActions(allowsFullSwipe: false) {
                     Button("メニューから解除", systemImage: "minus.circle") {
                         todayMenu.remove(recipe.id)
@@ -115,6 +214,7 @@ struct TodayMenuView: View {
             .keepAwake()
         }
         .onChange(of: menuRecipes.map(\.id)) { _, ids in
+            jumps.updateOrder(ids)
             expandedIDs.formIntersection(ids)
             if let selectedPhoto, !ids.contains(selectedPhoto.recipeID) {
                 self.selectedPhoto = nil
